@@ -1,8 +1,6 @@
 package com.project.coroutines
 
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.junit.Test
 
 import org.junit.Assert.*
@@ -15,12 +13,12 @@ import kotlin.coroutines.coroutineContext
  * See [testing documentation](http://d.android.com/tools/testing).
  */
 class ExampleUnitTest {
+    private val coroutineScope = CoroutineScope(Dispatchers.Default)
+
     @Test
     fun addition_isCorrect() {
-        val a = runBlocking {
-                this.launch {
-
-                }
-        }
+        val stub = Stub()
+        runBlocking { stub.count() }
+        //println(a)
     }
 }
