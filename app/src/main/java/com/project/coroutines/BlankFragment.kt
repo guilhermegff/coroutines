@@ -10,10 +10,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -32,6 +29,9 @@ class BlankFragment : Fragment() {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main.immediate)
     private val secondCoroutineScope = CoroutineScope(Dispatchers.Default)
+
+    private var job: Job? = null
+    private var jobCounter: Job? = null
 
     private lateinit var button : Button
     private lateinit var textView : TextView
@@ -61,51 +61,55 @@ class BlankFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         button.setOnClickListener {
+            val benchmarkDurationSeconds = 5
             println("button click")
-            button.isEnabled = false
-            coroutineScope.launch {
-                val iterationsCount = executeBenchmark()
-                Toast.makeText(requireContext(), "$iterationsCount", Toast.LENGTH_SHORT).show()
+            jobCounter = coroutineScope.launch {
+                updateRemainingTime(benchmarkDurationSeconds)
             }
-            button.isEnabled = true
+
+            job = coroutineScope.launch {
+                button.isEnabled = false
+                val iterationsCount = executeBenchmark(benchmarkDurationSeconds)
+                Toast.makeText(requireContext(), "$iterationsCount", Toast.LENGTH_SHORT).show()
+                button.isEnabled = true
+            }
         }
     }
 
     override fun onStop() {
         super.onStop()
         println("onStop")
+        job?.cancel()
+        jobCounter?.cancel()
     }
 
-    private suspend fun executeBenchmark() : Long {
-        val benchmarkDurationSeconds = 5
+    private suspend fun executeBenchmark(benchmarkDurationSeconds: Int) = withContext(Dispatchers.Default) {
+        logThreadInfo("benchmark started")
 
-        updateRemainingTime(benchmarkDurationSeconds)
-        return withContext(Dispatchers.Default) {
-            logThreadInfo("benchmark started")
+        val stopTimeNano = System.nanoTime() + benchmarkDurationSeconds * 1_000_000_000L
 
-            val stopTimeNano = System.nanoTime() + benchmarkDurationSeconds * 1_000_000_000L
-
-            var iterationsCount: Long = 0
-            while (System.nanoTime() < stopTimeNano) {
-                iterationsCount++
-            }
-
-            logThreadInfo("benchmark completed")
-
-            iterationsCount
+        var iterationsCount: Long = 0
+        while (System.nanoTime() < stopTimeNano) {
+            iterationsCount++
         }
+
+        logThreadInfo("benchmark completed")
+
+        iterationsCount
     }
 
-    private fun updateRemainingTime(remainingTimeSeconds: Int) {
-        logThreadInfo("updateRemainingTime: $remainingTimeSeconds seconds")
 
-        if(remainingTimeSeconds > 0) {
-            textView.text = "$remainingTimeSeconds"
-            Handler(Looper.getMainLooper()).postDelayed({
-                updateRemainingTime(remainingTimeSeconds - 1)
-            }, 1000)
-        } else {
-            textView.text = "Done"
+    private suspend fun updateRemainingTime(remainingTimeSeconds: Int) {
+        for (time in remainingTimeSeconds downTo 0) {
+            if (time > 0) {
+                logThreadInfo("updateRemainingTime: $time seconds")
+                if (remainingTimeSeconds > 0) {
+                    textView.text = "$time"
+                    delay(1000)
+                } else {
+                    textView.text = "Done"
+                }
+            }
         }
     }
 
